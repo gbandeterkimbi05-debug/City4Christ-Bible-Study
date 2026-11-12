@@ -1,300 +1,420 @@
-import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase Client
-const SUPABASE_URL = 'https://wwjmkaimrwkfhwettsdq.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // Keep your existing anon key here
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-const STUDY_DAYS = [
-  { day: 1, phase: "Phase 1: Gospels", title: "Pre-Existence & Birth", reading: "John 1:1-18; Luke 1; Matthew 1:18-25; Luke 2; Matthew 2", desc: "Compare John's cosmic opening with Luke's historical detail and Matthew's Old Testament fulfillment." },
-  { day: 2, phase: "Phase 1: Gospels", title: "Preparation & Early Ministry", reading: "Matthew 3-4; Mark 1; Luke 3-4; John 1:19-51; John 2-4", desc: "Baptism, temptation in the wilderness, calling the first disciples, and early signs in Cana and Samaria." }
-];
-
-export default function City4ChristApp() {
-  const [session, setSession] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authMode, setAuthMode] = useState('signin'); 
-  const [notes, setNotes] = useState({});
-  const [completedDays, setCompletedDays] = useState({});
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchUserData(session.user.id);
-      else setLoading(false);
-    });
-
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      if (event === 'PASSWORD_RECOVERY') {
-        setAuthMode('update-password');
-      }
-      if (session) fetchUserData(session.user.id);
-      else setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchUserData = async (userId) => {
-    setLoading(true);
-    const { data, error } = await supabaseClient
-      .from('user_notes')
-      .select('day_number, note_content, completed')
-      .eq('user_id', userId);
-
-    if (!error && data) {
-      const loadedNotes = {};
-      const loadedCompleted = {};
-      data.forEach(row => {
-        loadedNotes[row.day_number] = row.note_content || '';
-        loadedCompleted[row.day_number] = !!row.completed;
-      });
-      setNotes(loadedNotes);
-      setCompletedDays(loadedCompleted);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>City4Christ • NT Study Plan</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#5b2d7c" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #5b2d7c;
+      --card: #482163;
+      --card-hover: #542774;
+      --text: #f8fafc;
+      --muted: #e2d9eb;
+      --accent: #f3c65d;
+      --done: #34d399;
+      --border: #753c9e;
     }
-    setLoading(false);
-  };
-
-  const handleAuth = async (e) => {
-    e.preventDefault();
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      margin: 0; padding: 16px 20px 60px; max-width: 680px; margin-inline: auto;
+    }
+    header {
+      position: sticky; top: 0; background: rgba(91, 45, 124, 0.95);
+      backdrop-filter: blur(8px); padding: 12px 0 14px; z-index: 10;
+      border-bottom: 1px solid var(--border); margin-bottom: 18px;
+    }
+    .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .brand-container { display: flex; align-items: center; gap: 12px; }
+    .brand-logo { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; border: 2px solid var(--accent); }
+    .brand-titles h1 { margin: 0; font-size: 1.2rem; color: var(--text); }
+    .brand-titles span { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; display: block; }
     
-    if (authMode === 'signup') {
-      const { error } = await supabaseClient.auth.signUp({ email, password });
-      if (error) alert(error.message);
-      else alert('Account created successfully! You can now sign in.');
-    } 
-    else if (authMode === 'signin') {
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) alert(error.message);
-    } 
-    else if (authMode === 'forgot') {
-      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
-      });
-      if (error) alert(error.message);
-      else alert('Password reset link sent! Check your email inbox.');
+    .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .btn-action, .btn-auth {
+      background: #482163; color: var(--accent); border: 1px solid var(--border);
+      padding: 6px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
     }
-    else if (authMode === 'update-password') {
-      const { error } = await supabaseClient.auth.updateUser({ password });
-      if (error) alert(error.message);
-      else {
-        alert('Password updated successfully!');
-        setAuthMode('signin');
-      }
-    }
-  };
-
-  const saveData = async (dayNumber, newNoteContent, newCompletedStatus) => {
-    if (!session?.user) return;
-    const userId = session.user.id;
+    .btn-action:hover, .btn-auth:hover { background: #542774; }
     
-    const payload = {
-      user_id: userId,
-      day_number: dayNumber,
-      note_content: newNoteContent !== undefined ? newNoteContent : (notes[dayNumber] || ''),
-      completed: newCompletedStatus !== undefined ? newCompletedStatus : (!!completedDays[dayNumber]),
-      updated_at: new Date().toISOString()
-    };
-
-    const { error } = await supabaseClient
-      .from('user_notes')
-      .upsert(payload, { onConflict: 'user_id,day_number' });
-
-    if (error) {
-      console.error('Sync error:', error.message);
+    .progress-bar { background: #37174e; height: 10px; border-radius: 99px; overflow: hidden; }
+    .progress-fill { background: var(--done); height: 100%; width: 0%; transition: width 0.3s ease; }
+    .stats { font-size: 0.85rem; color: var(--muted); margin-top: 6px; display: flex; justify-content: space-between; }
+    
+    .filters { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 2px; }
+    .filter-btn {
+      background: var(--card); color: var(--muted); border: 1px solid var(--border);
+      padding: 5px 11px; border-radius: 99px; font-size: 0.78rem; cursor: pointer; white-space: nowrap;
     }
-  };
+    .filter-btn.active { background: var(--accent); color: #37174e; font-weight: 700; border-color: var(--accent); }
+    
+    .day-card {
+      background: var(--card); border-radius: 12px; padding: 16px;
+      margin-bottom: 14px; border-left: 4px solid var(--accent);
+      transition: opacity 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .day-card.completed { border-left-color: var(--done); opacity: 0.75; }
+    .day-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .phase-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); display: block; margin-bottom: 2px; font-weight: 600; }
+    .day-title { font-weight: 700; font-size: 1.05rem; }
+    
+    .passage-link {
+      display: inline-block; color: var(--accent); font-size: 0.9rem; margin: 8px 0;
+      font-weight: 500; text-decoration: none; background: rgba(243, 198, 93, 0.1);
+      padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(243, 198, 93, 0.25);
+    }
+    .passage-link:hover { background: rgba(243, 198, 93, 0.2); }
+    
+    .focus { color: var(--muted); font-size: 0.86rem; line-height: 1.4; margin-bottom: 12px; }
+    input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--done); cursor: pointer; flex-shrink: 0; margin-top: 4px; }
+    
+    textarea {
+      width: 100%; box-sizing: border-box; background: #37174e; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; font-size: 0.85rem;
+      resize: vertical; min-height: 44px; font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
 
-  const handleNoteChange = (dayNumber, val) => {
-    setNotes(prev => ({ ...prev, [dayNumber]: val }));
-    saveData(dayNumber, val, undefined);
-  };
+    #auth-modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000;
+    }
+    .auth-card {
+      background: #482163; border: 1px solid var(--border); padding: 2rem;
+      border-radius: 12px; width: 100%; max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); text-align: center;
+    }
+    .auth-card h2 { color: var(--accent); margin-top: 0; }
+    .auth-card input {
+      width: 100%; padding: 0.75rem; margin: 0.5rem 0; background: #37174e;
+      border: 1px solid var(--border); border-radius: 8px; color: var(--text); box-sizing: border-box;
+    }
+    .auth-card input:focus { outline: none; border-color: var(--accent); }
+    .auth-card button.submit-auth {
+      width: 100%; background-color: var(--accent); color: #37174e; border: none;
+      padding: 0.75rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 1rem;
+    }
+    .auth-card button.submit-auth:hover { opacity: 0.9; }
+    .toggle-auth, .forgot-password { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); cursor: pointer; text-decoration: underline; display: block; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
 
-  const toggleComplete = (dayNumber) => {
-    const nextStatus = !completedDays[dayNumber];
-    setCompletedDays(prev => ({ ...prev, [dayNumber]: nextStatus }));
-    saveData(dayNumber, undefined, nextStatus);
-  };
+  <div id="auth-modal" class="hidden">
+    <div class="auth-card">
+      <h2 id="auth-title">Welcome to City4Christ</h2>
+      <p id="auth-subtitle" style="font-size: 0.9rem; color: var(--muted);">Sign in to securely sync your study notes and progress.</p>
+      
+      <input type="email" id="email" placeholder="Email address">
+      <input type="password" id="password" placeholder="Password">
+      
+      <button class="submit-auth" id="auth-submit-btn" onclick="handleAuth()">Sign In</button>
+      <span class="forgot-password" onclick="handleForgotPassword()">Forgot password?</span>
+      <div class="toggle-auth" onclick="toggleAuthMode()">Need an account? Sign Up</div>
+      <div id="auth-error" style="color: #ff6b6b; font-size: 0.85rem; margin-top: 0.75rem;"></div>
+    </div>
+  </div>
 
-  const completedCount = Object.values(completedDays).filter(Boolean).length;
-  const progressPercent = Math.round((completedCount / 30) * 100) || 0;
-
-  if (!session && authMode !== 'update-password') {
-    return (
-      <div style={styles.authContainer}>
-        <div style={styles.authCard}>
-          <h2>City4Christ Bible Study</h2>
-          <p>
-            {authMode === 'forgot' 
-              ? 'Enter your email to receive a password reset link.' 
-              : 'Sign in to sync your 30-day journey across all devices.'}
-          </p>
-          <form onSubmit={handleAuth} style={styles.form}>
-            <input 
-              type="email" 
-              placeholder="Email address" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              required 
-              style={styles.input}
-            />
-            {authMode !== 'forgot' && (
-              <input 
-                type="password" 
-                placeholder="Password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                required 
-                style={styles.input}
-              />
-            )}
-            <button type="submit" style={styles.primaryButton}>
-              {authMode === 'signup' && 'Create Account'}
-              {authMode === 'signin' && 'Sign In'}
-              {authMode === 'forgot' && 'Send Reset Link'}
-            </button>
-          </form>
-
-          <div style={styles.authSwitchLinks}>
-            {authMode === 'signin' && (
-              <>
-                <button type="button" onClick={() => setAuthMode('forgot')} style={styles.textButton}>Forgot Password?</button>
-                <button type="button" onClick={() => setAuthMode('signup')} style={styles.textButton}>Don't have an account? Sign Up</button>
-              </>
-            )}
-            {authMode === 'signup' && (
-              <button type="button" onClick={() => setAuthMode('signin')} style={styles.textButton}>Already have an account? Sign In</button>
-            )}
-            {authMode === 'forgot' && (
-              <button type="button" onClick={() => setAuthMode('signin')} style={styles.textButton}>Back to Sign In</button>
-            )}
-          </div>
-        </div>
-
-        {/* Corner Church Widget on Auth Screen */}
-        <div style={styles.cornerWidget}>
-          <p style={styles.widgetTitle}>🙏 City4Christ Prayer Line</p>
-          <a href="tel:01273021777" style={styles.widgetLink}>📞 01273 021777</a>
-          <a href="https://city4christ.org" target="_blank" rel="noopener noreferrer" style={styles.widgetLink}>🌐 city4christ.org</a>
-        </div>
-      </div>
-    );
-  }
-
-  if (authMode === 'update-password') {
-    return (
-      <div style={styles.authContainer}>
-        <div style={styles.authCard}>
-          <h2>Set New Password</h2>
-          <p>Please enter your new password below.</p>
-          <form onSubmit={handleAuth} style={styles.form}>
-            <input 
-              type="password" 
-              placeholder="New Password" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              required 
-              style={styles.input}
-            />
-            <button type="submit" style={styles.primaryButton}>Update Password</button>
-          </form>
+  <header>
+    <div class="top-row">
+      <div class="brand-container">
+        <img src="icon.png" alt="City4Christ Logo" class="brand-logo" />
+        <div class="brand-titles">
+          <span>The House of Good News</span>
+          <h1>City4Christ Bible Study</h1>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div style={styles.dashboardContainer}>
-      <header style={styles.header}>
-        <div>
-          <h1 style={styles.brandTitle}>City4Christ Bible Study</h1>
-          <p style={styles.subTitle}>{completedCount} of 30 Days Completed</p>
-        </div>
-        <button onClick={() => supabaseClient.auth.signOut()} style={styles.logoutButton}>Log Out</button>
-      </header>
-
-      <div style={styles.progressBarContainer}>
-        <div style={{ ...styles.progressBarFill, width: `${progressPercent}%` }}></div>
-      </div>
-
-      <main style={styles.mainContent}>
-        {STUDY_DAYS.map(item => (
-          <div key={item.day} style={styles.dayCard}>
-            <div style={styles.cardHeader}>
-              <div>
-                <span style={styles.phaseTag}>{item.phase}</span>
-                <h3>Day {item.day}: {item.title}</h3>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={!!completedDays[item.day]} 
-                onChange={() => toggleComplete(item.day)}
-                style={styles.checkbox}
-              />
-            </div>
-            <p style={styles.readingText}>📖 <strong>Read:</strong> {item.reading}</p>
-            <p style={styles.descText}>{item.desc}</p>
-            <textarea
-              placeholder="Write your 1-sentence takeaway or notes..."
-              value={notes[item.day] || ''}
-              onChange={e => handleNoteChange(item.day, e.target.value)}
-              style={styles.textarea}
-            />
-          </div>
-        ))}
-      </main>
-
-      <div style={styles.cornerWidget}>
-        <p style={styles.widgetTitle}>🙏 Church Prayer Line</p>
-        <a href="tel:01273021777" style={styles.widgetLink}>📞 01273 021777</a>
-        <a href="https://city4christ.org" target="_blank" rel="noopener noreferrer" style={styles.widgetLink}>🌐 Visit city4christ.org</a>
+      <div class="header-actions">
+        <button class="btn-action" id="shareBtn">Share Progress</button>
+        <button class="btn-action" id="exportBtn">Export Notes</button>
+        <button class="btn-auth hidden" id="logoutBtn" onclick="logoutUser()">Log Out</button>
       </div>
     </div>
-  );
-}
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="stats">
+      <span id="progressText">0 of 30 Days Completed</span>
+      <span id="percentText">0%</span>
+    </div>
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All Days (30)</button>
+      <button class="filter-btn" data-filter="1">Phase 1: Gospels</button>
+      <button class="filter-btn" data-filter="2">Phase 2: Acts & Paul</button>
+      <button class="filter-btn" data-filter="3">Phase 3: Final Letters</button>
+    </div>
+  </header>
 
-const styles = {
-  authContainer: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a102f', color: '#fff', padding: '1rem', position: 'relative' },
-  authCard: { background: '#2d1b4e', padding: '2rem', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' },
-  form: { display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' },
-  input: { padding: '0.75rem', borderRadius: '6px', border: '1px solid #4a3b75', background: '#1a102f', color: '#fff' },
-  primaryButton: { padding: '0.75rem', borderRadius: '6px', border: 'none', background: '#d4af37', color: '#1a102f', fontWeight: 'bold', cursor: 'pointer' },
-  authSwitchLinks: { display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '1rem' },
-  textButton: { background: 'none', border: 'none', color: '#d4af37', cursor: 'pointer', textAlign: 'center', fontSize: '0.9rem' },
-  dashboardContainer: { minHeight: '100vh', backgroundColor: '#1a102f', color: '#fff', padding: '2rem 1rem', position: 'relative' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '800px', margin: '0 auto 1.5rem auto' },
-  brandTitle: { fontSize: '1.5rem', color: '#d4af37', margin: 0 },
-  subTitle: { color: '#ccc', fontSize: '0.9rem', margin: '4px 0 0 0' },
-  logoutButton: { background: '#4a3b75', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' },
-  progressBarContainer: { maxWidth: '800px', margin: '0 auto 2rem auto', background: '#2d1b4e', height: '10px', borderRadius: '5px', overflow: 'hidden' },
-  progressBarFill: { background: '#d4af37', height: '100%', transition: 'width 0.3s ease' },
-  mainContent: { maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '4rem' },
-  dayCard: { background: '#2d1b4e', padding: '1.5rem', borderRadius: '10px', border: '1px solid #4a3b75' },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  phaseTag: { fontSize: '0.75rem', background: '#4a3b75', padding: '2px 8px', borderRadius: '4px', color: '#d4af37', textTransform: 'uppercase' },
-  readingText: { margin: '10px 0 5px 0', fontSize: '0.95rem' },
-  descText: { margin: '0 0 1rem 0', color: '#ddd', fontSize: '0.9rem' },
-  textarea: { width: '100%', minHeight: '60px', background: '#1a102f', border: '1px solid #4a3b75', borderRadius: '6px', color: '#fff', padding: '0.5rem', resize: 'vertical' },
-  checkbox: { width: '24px', height: '24px', cursor: 'pointer' },
-  cornerWidget: {
-    position: 'fixed',
-    bottom: '15px',
-    left: '15px',
-    background: 'rgba(45, 27, 78, 0.95)',
-    border: '1px solid #d4af37',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-    zIndex: 1000,
-    fontSize: '0.85rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px'
-  },
-  widgetTitle: { margin: '0 0 2px 0', fontWeight: 'bold', color: '#d4af37', fontSize: '0.85rem' },
-  widgetLink: { color: '#ffffff', textDecoration: 'none', display: 'block' }
-};
+  <main id="planContainer"></main>
+
+  <script>
+    const SUPABASE_URL = 'https://wwjmkaimrwkfhwettsdq.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_B-Pf2Jj0V2izHi95z_Qj-Q_rzbSZfT8';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let isSignUp = false;
+    let currentUser = null;
+    let savedState = { completed: {}, notes: {} };
+    let currentFilter = "all";
+
+    async function checkUserSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      currentUser = session?.user || null;
+      
+      if (!currentUser) {
+        document.getElementById('auth-modal').classList.remove('hidden');
+        document.getElementById('logoutBtn').classList.add('hidden');
+      } else {
+        document.getElementById('auth-modal').classList.add('hidden');
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        await fetchUserData();
+      }
+    }
+
+    async function handleAuth() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('auth-error');
+      errorEl.textContent = '';
+
+      if (isSignUp) {
+        const { error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) {
+          errorEl.textContent = error.message;
+        } else {
+          alert('Account created successfully! You can now sign in.');
+          isSignUp = false;
+          toggleAuthMode();
+        }
+      } else {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+          errorEl.textContent = error.message;
+        } else {
+          checkUserSession();
+        }
+      }
+    }
+
+    async function handleForgotPassword() {
+      const email = document.getElementById('email').value;
+      const errorEl = document.getElementById('auth-error');
+      errorEl.textContent = '';
+
+      if (!email) {
+        errorEl.textContent = 'Please enter your email address above first.';
+        return;
+      }
+
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.href,
+      });
+
+      if (error) {
+        errorEl.textContent = error.message;
+      } else {
+        alert('Password reset link sent! Check your email inbox.');
+      }
+    }
+
+    async function logoutUser() {
+      await supabaseClient.auth.signOut();
+      location.reload();
+    }
+
+    function toggleAuthMode() {
+      isSignUp = !isSignUp;
+      document.getElementById('auth-title').textContent = isSignUp ? 'Create Account' : 'Welcome to City4Christ';
+      document.getElementById('auth-submit-btn').textContent = isSignUp ? 'Sign Up' : 'Sign In';
+      document.querySelector('.toggle-auth').textContent = isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up';
+    }
+
+    async function fetchUserData() {
+      if (!currentUser) return;
+      const { data, error } = await supabaseClient
+        .from('user_notes')
+        .select('day_number, note_content, completed')
+        .eq('user_id', currentUser.id);
+
+      if (data && !error) {
+        savedState = { completed: {}, notes: {} };
+        data.forEach(row => {
+          if (row.note_content) savedState.notes[row.day_number] = row.note_content;
+          if (row.completed) savedState.completed[row.day_number] = row.completed;
+        });
+      }
+      renderPlan();
+    }
+
+    async function saveDayData(dayNumber) {
+      if (!currentUser) return;
+      const content = savedState.notes[dayNumber] || "";
+      const isDone = !!savedState.completed[dayNumber];
+
+      await supabaseClient
+        .from('user_notes')
+        .upsert({ 
+          user_id: currentUser.id, 
+          day_number: dayNumber, 
+          note_content: content,
+          completed: isDone,
+          updated_at: new Date()
+        }, { onConflict: 'user_id,day_number' });
+
+      updateProgress();
+    }
+
+    const BIBLE_VERSION = "NIV";
+
+    const studyPlan = [
+      { day: 1, phase: 1, phaseName: "Phase 1 • Gospels", title: "Pre-Existence & Birth", passages: "John 1:1-18; Luke 1; Matthew 1:18-25; Luke 2; Matthew 2", focus: "Compare John's cosmic opening with Luke's historical detail and Matthew's Old Testament fulfillment." },
+      { day: 2, phase: 1, phaseName: "Phase 1 • Gospels", title: "Preparation & Early Ministry", passages: "Matthew 3-4; Mark 1; Luke 3-4; John 1:19-51; John 2-4", focus: "Baptism, temptation in the wilderness, calling the first disciples, and early signs in Cana and Samaria." },
+      { day: 3, phase: 1, phaseName: "Phase 1 • Gospels", title: "The Sermon on the Mount", passages: "Matthew 5-7; Luke 6:17-49", focus: "Kingdom ethics: compare Matthew's mountain sermon with Luke's sermon on the plain." },
+      { day: 4, phase: 1, phaseName: "Phase 1 • Gospels", title: "Authority Over Disease & Nature", passages: "Matthew 8-9; Mark 2-5; Luke 5; Luke 7-8", focus: "Notice how Mark emphasizes fast-paced action and immediate authority over storms, demons, and sickness." },
+      { day: 5, phase: 1, phaseName: "Phase 1 • Gospels", title: "Sending the Twelve & Parables", passages: "Matthew 10-13; Mark 3:13-35; Mark 4:1-34; Mark 6:1-13; Luke 9:1-6", focus: "Jesus commissions the disciples and uses parables to reveal the mysteries of the Kingdom." },
+      { day: 6, phase: 1, phaseName: "Phase 1 • Gospels", title: "Miracles & Bread of Life", passages: "Matthew 14-15; Mark 6:30-56; Mark 7; Luke 9:10-17; John 5-6", focus: "Feeding the 5,000 across all four Gospels, followed by John's theological discourse on Jesus as the Bread of Life." },
+      { day: 7, phase: 1, phaseName: "Phase 1 • Gospels", title: "Peter’s Confession & Transfiguration", passages: "Matthew 16-18; Mark 8-9; Luke 9:18-62", focus: "The turning point of the Gospels: Peter recognizes Jesus as the Christ, and Jesus begins predicting His death." },
+      { day: 8, phase: 1, phaseName: "Phase 1 • Gospels", title: "Ministry in Judea & Conflict", passages: "John 7-10; Luke 10-13", focus: "Rising tension with religious leaders at the Feast of Tabernacles and Luke's parables (Good Samaritan)." },
+      { day: 9, phase: 1, phaseName: "Phase 1 • Gospels", title: "Parables of Grace & Lazarus", passages: "Luke 14-17; John 11", focus: "Lost sheep, lost coin, prodigal son, and Jesus demonstrating power over death by raising Lazarus." },
+      { day: 10, phase: 1, phaseName: "Phase 1 • Gospels", title: "Journey to Jerusalem", passages: "Matthew 19-20; Mark 10; Luke 18:1-19:27; John 12:1-11", focus: "Teachings on marriage, wealth, Zacchaeus, and Mary anointing Jesus at Bethany." },
+      { day: 11, phase: 1, phaseName: "Phase 1 • Gospels", title: "Triumphal Entry & Temple Debates", passages: "Matthew 21-23; Mark 11-12; Luke 19:28-20:47", focus: "Palm Sunday, cleansing the temple, and Jesus silencing every religious trap set for Him." },
+      { day: 12, phase: 1, phaseName: "Phase 1 • Gospels", title: "The Olivet Discourse (End Times)", passages: "Matthew 24-25; Mark 13; Luke 21", focus: "Jesus's prophecy regarding the destruction of Jerusalem, His second coming, and staying watchful." },
+      { day: 13, phase: 1, phaseName: "Phase 1 • Gospels", title: "The Last Supper & Upper Room", passages: "Matthew 26:1-35; Mark 14:1-31; Luke 22:1-38; John 13-17", focus: "The New Covenant meal and John's intimate record of Jesus washing feet and praying for believers." },
+      { day: 14, phase: 1, phaseName: "Phase 1 • Gospels", title: "Arrest, Trials & Crucifixion", passages: "Matthew 26:36-27:66; Mark 14:32-15:47; Luke 22:39-23:56; John 18-19", focus: "Heavy reading day: take your time comparing the four accounts of Gethsemane, Pilate's trial, and the cross." },
+      { day: 15, phase: 1, phaseName: "Phase 1 • Gospels", title: "Resurrection & Ascension", passages: "Matthew 28; Mark 16; Luke 24; John 20-21; Acts 1:1-11", focus: "The empty tomb, appearances to the disciples, the Great Commission, and Jesus ascending to heaven." },
+      { day: 16, phase: 2, phaseName: "Phase 2 • Early Church", title: "Pentecost & Birth of the Church", passages: "Acts 1-5", focus: "The Holy Spirit arrives, Peter preaches, 3,000 are saved, and the early church faces internal and external tests." },
+      { day: 17, phase: 2, phaseName: "Phase 2 • Early Church", title: "Stephen, Saul & The Book of James", passages: "Acts 6-9; James 1-5", focus: "Stephen's martyrdom scatters believers, Saul converts, and James writes practical wisdom to scattered Jewish Christians." },
+      { day: 18, phase: 2, phaseName: "Phase 2 • Early Church", title: "Gentile Inclusion & Galatians", passages: "Acts 10-14; Galatians 1-6", focus: "Peter visits Cornelius, Paul completes his 1st journey, and writes Galatians defending salvation by grace alone." },
+      { day: 19, phase: 2, phaseName: "Phase 2 • Early Church", title: "Jerusalem Council & Thessalonians", passages: "Acts 15:1-18:17; 1 Thessalonians 1-5; 2 Thessalonians 1-3", focus: "The church settles Gentile inclusion; Paul enters Europe and writes to the Thessalonians about Christ's return." },
+      { day: 20, phase: 2, phaseName: "Phase 2 • Early Church", title: "Ephesus & 1 Corinthians (Part 1)", passages: "Acts 18:18-19:41; 1 Corinthians 1-9", focus: "Paul ministers in Ephesus for two years and writes to correct divisions, pride, and immorality in Corinth." },
+      { day: 21, phase: 2, phaseName: "Phase 2 • Early Church", title: "1 Corinthians (Part 2) & 2 Corinthians", passages: "1 Corinthians 10-16; 2 Corinthians 1-6", focus: "Worship, love (ch. 13), spiritual gifts, the resurrection (ch. 15), and Paul's ministry of reconciliation." },
+      { day: 22, phase: 2, phaseName: "Phase 2 • Early Church", title: "2 Corinthians (Part 2) & Romans 1-4", passages: "2 Corinthians 7-13; Acts 20:1-3; Romans 1-4", focus: "Paul defends his apostleship, arrives in Greece, and lays out humanity's need for justification by faith." },
+      { day: 23, phase: 2, phaseName: "Phase 2 • Early Church", title: "Romans 5-11: Life in the Spirit", passages: "Romans 5-11", focus: "Freedom from sin and death, life in the Spirit (ch. 8), and God's sovereign faithfulness to Israel." },
+      { day: 24, phase: 2, phaseName: "Phase 2 • Early Church", title: "Romans 12-16 & Paul's Arrest", passages: "Romans 12-16; Acts 20:4-23:35", focus: "Living sacrifices, Christian unity, and Paul's arrest in Jerusalem after his farewell to the Ephesian elders." },
+      { day: 25, phase: 3, phaseName: "Phase 3 • Final Letters", title: "Voyage to Rome, Philemon & Colossians", passages: "Acts 24-28; Philemon 1; Colossians 1-4", focus: "Shipwreck, arrival under Roman house arrest, and letters highlighting forgiveness and Christ's supremacy over all." },
+      { day: 26, phase: 3, phaseName: "Phase 3 • Final Letters", title: "Ephesians & Philippians", passages: "Ephesians 1-6; Philippians 1-4", focus: "Prison Epistles: the cosmic unity of the Church (Ephesians) and unshakeable joy in Christ (Philippians)." },
+      { day: 27, phase: 3, phaseName: "Phase 3 • Final Letters", title: "The Pastoral Epistles", passages: "1 Timothy 1-6; Titus 1-3; 2 Timothy 1-4", focus: "Paul's instructions on healthy church leadership and his final, moving farewell letter before execution." },
+      { day: 28, phase: 3, phaseName: "Phase 3 • Final Letters", title: "The Book of Hebrews", passages: "Hebrews 1-13", focus: "How Jesus is the ultimate High Priest and better covenant, fulfilling every Old Testament shadow." },
+      { day: 29, phase: 3, phaseName: "Phase 3 • Final Letters", title: "1 & 2 Peter and Jude", passages: "1 Peter 1-5; 2 Peter 1-3; Jude 1", focus: "Standing firm with hope under Roman persecution and guarding the faith against false teachers." },
+      { day: 30, phase: 3, phaseName: "Phase 3 • Final Letters", title: "John's Letters & Revelation", passages: "1 John 1-5; 2 John 1; 3 John 1; Revelation 1-22", focus: "Walking in love and truth, culminating in the dramatic vision of Christ's victory and the New Creation." }
+    ];
+
+    function updateProgress() {
+      const total = studyPlan.length;
+      const doneCount = Object.values(savedState.completed).filter(Boolean).length;
+      const pct = Math.round((doneCount / total) * 100);
+      document.getElementById("progressFill").style.width = pct + "%";
+      document.getElementById("progressText").textContent = `${doneCount} of ${total} Days Completed`;
+      document.getElementById("percentText").textContent = `${pct}%`;
+    }
+
+    function buildBibleUrl(passages) {
+      return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(passages)}&version=${BIBLE_VERSION}`;
+    }
+
+    function renderPlan() {
+      const container = document.getElementById("planContainer");
+      container.innerHTML = "";
+
+      const filtered = currentFilter === "all"
+        ? studyPlan
+        : studyPlan.filter(item => String(item.phase) === currentFilter);
+
+      filtered.forEach(item => {
+        const isDone = !!savedState.completed[item.day];
+        const card = document.createElement("div");
+        card.className = `day-card ${isDone ? "completed" : ""}`;
+
+        card.innerHTML = `
+          <div class="day-header">
+            <div>
+              <span class="phase-tag">${item.phaseName}</span>
+              <span class="day-title">Day ${item.day}: ${item.title}</span>
+            </div>
+            <input type="checkbox" ${isDone ? "checked" : ""} aria-label="Mark Day ${item.day} complete" />
+          </div>
+          <a class="passage-link" href="${buildBibleUrl(item.passages)}" target="_blank" rel="noopener">
+            📖 Read (${BIBLE_VERSION}): ${item.passages} ↗
+          </a>
+          <div class="focus">${item.focus}</div>
+          <textarea placeholder="Write your 1-sentence takeaway...">${savedState.notes[item.day] || ""}</textarea>
+        `;
+
+        card.querySelector("input").addEventListener("change", (e) => {
+          savedState.completed[item.day] = e.target.checked;
+          card.classList.toggle("completed", e.target.checked);
+          saveDayData(item.day);
+        });
+
+        card.querySelector("textarea").addEventListener("input", (e) => {
+          savedState.notes[item.day] = e.target.value;
+          saveDayData(item.day);
+        });
+
+        container.appendChild(card);
+      });
+      updateProgress();
+    }
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.dataset.filter;
+        renderPlan();
+      });
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      let md = "# City4Christ - New Testament Study Notes\n\n";
+      studyPlan.forEach(item => {
+        const status = savedState.completed[item.day] ? "[x]" : "[ ]";
+        const note = (savedState.notes[item.day] || "").trim();
+        md += `### ${status} Day ${item.day}: ${item.title}\n`;
+        md += `**Passages:** ${item.passages}\n`;
+        if (note) md += `> ${note}\n`;
+        md += "\n";
+      });
+
+      const blob = new Blob([md], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "City4Christ-NT-Notes.md";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("shareBtn").addEventListener("click", async () => {
+      const total = studyPlan.length;
+      const doneCount = Object.values(savedState.completed).filter(Boolean).length;
+      const pct = Math.round((doneCount / total) * 100);
+      
+      const shareText = `🙏 I am currently at ${pct}% completion (${doneCount}/${total} days) in the City4Christ 30-Day Bible Study! Join me in the Word today! ✨`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'City4Christ Bible Study',
+            text: shareText,
+            url: window.location.href,
+          });
+        } catch (err) {
+          console.log('Share canceled or failed', err);
+        }
+      } else {
+        navigator.clipboard.writeText(shareText);
+        alert('Progress copied to clipboard! You can now paste it into WhatsApp or text messages.');
+      }
+    });
+
+    checkUserSession();  
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+</body>
+</html>
