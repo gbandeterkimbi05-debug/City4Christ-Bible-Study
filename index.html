@@ -29,18 +29,18 @@
       backdrop-filter: blur(8px); padding: 12px 0 14px; z-index: 10;
       border-bottom: 1px solid var(--border); margin-bottom: 18px;
     }
-    .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
     .brand-container { display: flex; align-items: center; gap: 12px; }
     .brand-logo { width: 42px; height: 42px; border-radius: 10px; object-fit: cover; border: 2px solid var(--accent); }
     .brand-titles h1 { margin: 0; font-size: 1.2rem; color: var(--text); }
     .brand-titles span { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; display: block; }
     
-    .header-actions { display: flex; gap: 8px; align-items: center; }
-    .btn-export, .btn-auth {
+    .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .btn-action, .btn-auth {
       background: #482163; color: var(--accent); border: 1px solid var(--border);
-      padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      padding: 6px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
     }
-    .btn-export:hover, .btn-auth:hover { background: #542774; }
+    .btn-action:hover, .btn-auth:hover { background: #542774; }
     
     .progress-bar { background: #37174e; height: 10px; border-radius: 99px; overflow: hidden; }
     .progress-fill { background: var(--done); height: 100%; width: 0%; transition: width 0.3s ease; }
@@ -100,13 +100,13 @@
       padding: 0.75rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 1rem;
     }
     .auth-card button.submit-auth:hover { opacity: 0.9; }
-    .toggle-auth { margin-top: 1rem; font-size: 0.85rem; color: var(--muted); cursor: pointer; text-decoration: underline; }
+    .toggle-auth, .forgot-password { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); cursor: pointer; text-decoration: underline; display: block; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <!-- Login / Signup Overlay -->
+  <!-- Login / Signup / Forgot Password Overlay -->
   <div id="auth-modal" class="hidden">
     <div class="auth-card">
       <h2 id="auth-title">Welcome to City4Christ</h2>
@@ -116,6 +116,7 @@
       <input type="password" id="password" placeholder="Password">
       
       <button class="submit-auth" id="auth-submit-btn" onclick="handleAuth()">Sign In</button>
+      <span class="forgot-password" onclick="handleForgotPassword()">Forgot password?</span>
       <div class="toggle-auth" onclick="toggleAuthMode()">Need an account? Sign Up</div>
       <div id="auth-error" style="color: #ff6b6b; font-size: 0.85rem; margin-top: 0.75rem;"></div>
     </div>
@@ -131,7 +132,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn-export" id="exportBtn">Export Notes</button>
+        <button class="btn-action" id="shareBtn">Share Progress</button>
+        <button class="btn-action" id="exportBtn">Export Notes</button>
         <button class="btn-auth hidden" id="logoutBtn" onclick="logoutUser()">Log Out</button>
       </div>
     </div>
@@ -198,6 +200,27 @@
         } else {
           checkUserSession();
         }
+      }
+    }
+
+    async function handleForgotPassword() {
+      const email = document.getElementById('email').value;
+      const errorEl = document.getElementById('auth-error');
+      errorEl.textContent = '';
+
+      if (!email) {
+        errorEl.textContent = 'Please enter your email address above first.';
+        return;
+      }
+
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.href,
+      });
+
+      if (error) {
+        errorEl.textContent = error.message;
+      } else {
+        alert('Password reset link sent! Check your email inbox.');
       }
     }
 
@@ -374,6 +397,29 @@
       a.download = "City4Christ-NT-Notes.md";
       a.click();
       URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("shareBtn").addEventListener("click", async () => {
+      const total = studyPlan.length;
+      const doneCount = Object.values(savedState.completed).filter(Boolean).length;
+      const pct = Math.round((doneCount / total) * 100);
+      
+      const shareText = `🙏 I am currently at ${pct}% completion (${doneCount}/${total} days) in the City4Christ 30-Day Bible Study! Join me in the Word today! ✨`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'City4Christ Bible Study',
+            text: shareText,
+            url: window.location.href,
+          });
+        } catch (err) {
+          console.log('Share canceled or failed', err);
+        }
+      } else {
+        navigator.clipboard.writeText(shareText);
+        alert('Progress copied to clipboard! You can now paste it into WhatsApp or text messages.');
+      }
     });
 
     // Initialize session check on load
