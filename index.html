@@ -8,19 +8,17 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STUDY_DAYS = [
   { day: 1, phase: "Phase 1: Gospels", title: "Pre-Existence & Birth", reading: "John 1:1-18; Luke 1; Matthew 1:18-25; Luke 2; Matthew 2", desc: "Compare John's cosmic opening with Luke's historical detail and Matthew's Old Testament fulfillment." },
-  { day: 2, phase: "Phase 1: Gospels", title: "Preparation & Early Ministry", reading: "Matthew 3-4; Mark 1; Luke 3-4; John 1:19-51; John 2-4", desc: "Baptism, temptation in the wilderness, calling the first disciples, and early signs in Cana and Samaria." },
-  // ... (Days 3 through 30 follow the same structure in your full app)
+  { day: 2, phase: "Phase 1: Gospels", title: "Preparation & Early Ministry", reading: "Matthew 3-4; Mark 1; Luke 3-4; John 1:19-51; John 2-4", desc: "Baptism, temptation in the wilderness, calling the first disciples, and early signs in Cana and Samaria." }
 ];
 
 export default function City4ChristApp() {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [authMode, setAuthMode] = useState('signin'); 
   const [notes, setNotes] = useState({});
   const [completedDays, setCompletedDays] = useState({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('All');
 
   useEffect(() => {
     supabaseClient.auth.getSession().then(({ data: { session } }) => {
@@ -29,14 +27,13 @@ export default function City4ChristApp() {
       else setLoading(false);
     });
 
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (session) fetchUserData(session.user.id);
-      else {
-        setNotes({});
-        setCompletedDays({});
-        setLoading(false);
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('update-password');
       }
+      if (session) fetchUserData(session.user.id);
+      else setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -64,13 +61,30 @@ export default function City4ChristApp() {
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    if (isSignUp) {
+    
+    if (authMode === 'signup') {
       const { error } = await supabaseClient.auth.signUp({ email, password });
       if (error) alert(error.message);
-      else alert('Check your email for confirmation or log in if confirmation is bypassed!');
-    } else {
+      else alert('Account created successfully! You can now sign in.');
+    } 
+    else if (authMode === 'signin') {
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) alert(error.message);
+    } 
+    else if (authMode === 'forgot') {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) alert(error.message);
+      else alert('Password reset link sent! Check your email inbox.');
+    }
+    else if (authMode === 'update-password') {
+      const { error } = await supabaseClient.auth.updateUser({ password });
+      if (error) alert(error.message);
+      else {
+        alert('Password updated successfully!');
+        setAuthMode('signin');
+      }
     }
   };
 
@@ -109,12 +123,16 @@ export default function City4ChristApp() {
   const completedCount = Object.values(completedDays).filter(Boolean).length;
   const progressPercent = Math.round((completedCount / 30) * 100) || 0;
 
-  if (!session) {
+  if (!session && authMode !== 'update-password') {
     return (
       <div style={styles.authContainer}>
         <div style={styles.authCard}>
           <h2>City4Christ Bible Study</h2>
-          <p>Sign in to sync your 30-day journey across all devices.</p>
+          <p>
+            {authMode === 'forgot' 
+              ? 'Enter your email to receive a password reset link.' 
+              : 'Sign in to sync your 30-day journey across all devices.'}
+          </p>
           <form onSubmit={handleAuth} style={styles.form}>
             <input 
               type="email" 
@@ -124,21 +142,37 @@ export default function City4ChristApp() {
               required 
               style={styles.input}
             />
-            <input 
-              type="password" 
-              placeholder="Password" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              required 
-              style={styles.input}
-            />
+            {authMode !== 'forgot' && (
+              <input 
+                type="password" 
+                placeholder="Password" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                required 
+                style={styles.input}
+              />
+            )}
             <button type="submit" style={styles.primaryButton}>
-              {isSignUp ? 'Create Account' : 'Sign In'}
+              {authMode === 'signup' && 'Create Account'}
+              {authMode === 'signin' && 'Sign In'}
+              {authMode === 'forgot' && 'Send Reset Link'}
             </button>
           </form>
-          <button onClick={() => setIsSignUp(!isSignUp)} style={styles.textButton}>
-            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-          </button>
+
+          <div style={styles.authSwitchLinks}>
+            {authMode === 'signin' && (
+              <>
+                <button type="button" onClick={() => setAuthMode('forgot')} style={styles.textButton}>Forgot Password?</button>
+                <button type="button" onClick={() => setAuthMode('signup')} style={styles.textButton}>Don't have an account? Sign Up</button>
+              </>
+            )}
+            {authMode === 'signup' && (
+              <button type="button" onClick={() => setAuthMode('signin')} style={styles.textButton}>Already have an account? Sign In</button>
+            )}
+            {authMode === 'forgot' && (
+              <button type="button" onClick={() => setAuthMode('signin')} style={styles.textButton}>Back to Sign In</button>
+            )}
+          </div>
         </div>
 
         {/* Corner Church Widget on Auth Screen */}
@@ -146,6 +180,28 @@ export default function City4ChristApp() {
           <p style={styles.widgetTitle}>🙏 City4Christ Prayer Line</p>
           <a href="tel:01273021777" style={styles.widgetLink}>📞 01273 021777</a>
           <a href="https://city4christ.org" target="_blank" rel="noopener noreferrer" style={styles.widgetLink}>🌐 city4christ.org</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (authMode === 'update-password') {
+    return (
+      <div style={styles.authContainer}>
+        <div style={styles.authCard}>
+          <h2>Set New Password</h2>
+          <p>Please enter your new password below.</p>
+          <form onSubmit={handleAuth} style={styles.form}>
+            <input 
+              type="password" 
+              placeholder="New Password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              required 
+              style={styles.input}
+            />
+            <button type="submit" style={styles.primaryButton}>Update Password</button>
+          </form>
         </div>
       </div>
     );
@@ -161,12 +217,10 @@ export default function City4ChristApp() {
         <button onClick={() => supabaseClient.auth.signOut()} style={styles.logoutButton}>Log Out</button>
       </header>
 
-      {/* Progress Bar */}
       <div style={styles.progressBarContainer}>
         <div style={{ ...styles.progressBarFill, width: `${progressPercent}%` }}></div>
       </div>
 
-      {/* Study Day List */}
       <main style={styles.mainContent}>
         {STUDY_DAYS.map(item => (
           <div key={item.day} style={styles.dayCard}>
@@ -194,7 +248,6 @@ export default function City4ChristApp() {
         ))}
       </main>
 
-      {/* Fixed Corner Church Widget */}
       <div style={styles.cornerWidget}>
         <p style={styles.widgetTitle}>🙏 Church Prayer Line</p>
         <a href="tel:01273021777" style={styles.widgetLink}>📞 01273 021777</a>
@@ -210,7 +263,8 @@ const styles = {
   form: { display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' },
   input: { padding: '0.75rem', borderRadius: '6px', border: '1px solid #4a3b75', background: '#1a102f', color: '#fff' },
   primaryButton: { padding: '0.75rem', borderRadius: '6px', border: 'none', background: '#d4af37', color: '#1a102f', fontWeight: 'bold', cursor: 'pointer' },
-  textButton: { background: 'none', border: 'none', color: '#d4af37', marginTop: '1rem', cursor: 'pointer', width: '100%' },
+  authSwitchLinks: { display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '1rem' },
+  textButton: { background: 'none', border: 'none', color: '#d4af37', cursor: 'pointer', textAlign: 'center', fontSize: '0.9rem' },
   dashboardContainer: { minHeight: '100vh', backgroundColor: '#1a102f', color: '#fff', padding: '2rem 1rem', position: 'relative' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '800px', margin: '0 auto 1.5rem auto' },
   brandTitle: { fontSize: '1.5rem', color: '#d4af37', margin: 0 },
