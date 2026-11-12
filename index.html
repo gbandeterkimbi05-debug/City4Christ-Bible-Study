@@ -172,16 +172,16 @@
 
     <script>
         // --- 1. CONFIGURATION ---
-        const SUPABASE_URL = https://wwjmkaimrwkfhwettsdq.supabase.co; // Replace with your Project URL
-        const SUPABASE_ANON_KEY = sb_publishable_B-Pf2Jj0V2izHi95z_Qj-Q_rzbSZfT8; // Replace with your Anon API Key
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const SUPABASE_URL = 'https://wwjmkaimrwkfhwettsdq.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_B-Pf2Jj0V2izHi95z_Qj-Q_rzbSZfT8';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let isSignUp = false;
         let currentUser = null;
 
         // --- 2. AUTHENTICATION LOGIC ---
         async function checkUserSession() {
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await supabaseClient.auth.getSession();
             currentUser = session?.user || null;
             
             if (!currentUser) {
@@ -190,7 +190,7 @@
             } else {
                 document.getElementById('auth-modal').classList.add('hidden');
                 document.getElementById('logout-btn').classList.remove('hidden');
-                loadUserNote(1); // Load user's saved notes once logged in
+                loadUserNote(1);
             }
         }
 
@@ -201,16 +201,16 @@
             errorEl.textContent = '';
 
             if (isSignUp) {
-                const { data, error } = await supabase.auth.signUp({ email, password });
+                const { data, error } = await supabaseClient.auth.signUp({ email, password });
                 if (error) {
                     errorEl.textContent = error.message;
                 } else {
                     alert('Account created! You can now sign in.');
                     isSignUp = false;
-                    updateAuthUI();
+                    toggleAuthMode();
                 }
             } else {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) {
                     errorEl.textContent = error.message;
                 } else {
@@ -220,7 +220,7 @@
         }
 
         async function logoutUser() {
-            await supabase.auth.signOut();
+            await supabaseClient.auth.signOut();
             location.reload();
         }
 
@@ -236,7 +236,7 @@
             if (!currentUser) return;
             const content = document.getElementById(`note-day-${dayNumber}`).value;
             
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('user_notes')
                 .upsert({ 
                     user_id: currentUser.id, 
@@ -248,7 +248,7 @@
             const statusEl = document.getElementById('save-status');
             if (error) {
                 statusEl.style.color = 'red';
-                statusEl.textContent = 'Error saving!';
+                statusEl.textContent = 'Error saving: ' + error.message;
             } else {
                 statusEl.style.color = 'green';
                 statusEl.textContent = 'Saved to cloud!';
@@ -259,7 +259,7 @@
         async function loadUserNote(dayNumber) {
             if (!currentUser) return;
             
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('user_notes')
                 .select('note_content')
                 .eq('user_id', currentUser.id)
