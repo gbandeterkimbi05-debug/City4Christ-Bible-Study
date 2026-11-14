@@ -6,7 +6,8 @@
   <title>City4Christ • NT Study Plan</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#5b2d7c" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Use a robust CDN version for Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
   <style>
     :root {
       --bg: #5b2d7c;
@@ -65,4 +66,118 @@
     .day-title { font-weight: 700; font-size: 1.05rem; }
     
     .passage-link {
-      display
+      display: inline-block; color: var(--accent); font-size: 0.9rem; margin: 8px 0;
+      font-weight: 500; text-decoration: none; background: rgba(243, 198, 93, 0.1);
+      padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(243, 198, 93, 0.25);
+    }
+    .passage-link:hover { background: rgba(243, 198, 93, 0.2); }
+    
+    .focus { color: var(--muted); font-size: 0.86rem; line-height: 1.4; margin-bottom: 12px; }
+    input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--done); cursor: pointer; flex-shrink: 0; margin-top: 4px; }
+    input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
+    
+    textarea {
+      width: 100%; box-sizing: border-box; background: #37174e; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; font-size: 0.85rem;
+      resize: vertical; min-height: 44px; font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+    textarea:disabled { cursor: not-allowed; background: #2a103d; color: #9988aa; }
+
+    #auth-modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000;
+    }
+    .auth-card {
+      background: #482163; border: 1px solid var(--border); padding: 2rem;
+      border-radius: 12px; width: 100%; max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); text-align: center;
+    }
+    .auth-card h2 { color: var(--accent); margin-top: 0; }
+    .auth-card input {
+      width: 100%; padding: 0.75rem; margin: 0.5rem 0; background: #37174e;
+      border: 1px solid var(--border); border-radius: 8px; color: var(--text); box-sizing: border-box;
+    }
+    .auth-card input:focus { outline: none; border-color: var(--accent); }
+    .auth-card button.submit-auth {
+      width: 100%; background-color: var(--accent); color: #37174e; border: none;
+      padding: 0.75rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 1rem;
+    }
+    .auth-card button.submit-auth:hover { opacity: 0.9; }
+    .toggle-auth, .forgot-password { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); cursor: pointer; text-decoration: underline; display: block; }
+    .hidden { display: none !important; }
+
+    .corner-widget {
+      position: fixed;
+      bottom: 15px;
+      left: 15px;
+      background: rgba(45, 27, 78, 0.95);
+      border: 1px solid var(--accent);
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 100;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .widget-title { margin: 0; font-weight: bold; color: var(--accent); }
+    .widget-link { color: var(--text); text-decoration: none; display: block; }
+    .widget-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <div id="auth-modal" class="hidden">
+    <div class="auth-card">
+      <h2 id="auth-title">Welcome to City4Christ</h2>
+      <p id="auth-subtitle" style="font-size: 0.9rem; color: var(--muted);">Sign in to securely sync your study notes and progress.</p>
+      
+      <input type="email" id="email" placeholder="Email address">
+      <input type="password" id="password" placeholder="Password">
+      
+      <button class="submit-auth" id="auth-submit-btn" onclick="handleAuth()">Sign In</button>
+      <span class="forgot-password" onclick="handleForgotPassword()">Forgot password?</span>
+      <div class="toggle-auth" onclick="toggleAuthMode()">Need an account? Sign Up</div>
+      <div id="auth-error" style="color: #ff6b6b; font-size: 0.85rem; margin-top: 0.75rem;"></div>
+    </div>
+  </div>
+
+  <header>
+    <div class="top-row">
+      <div class="brand-container">
+        <img src="icon.png" alt="City4Christ Logo" class="brand-logo" onerror="this.style.display='none'" />
+        <div class="brand-titles">
+          <span>The House of Good News</span>
+          <h1>City4Christ Bible Study</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action" id="shareBtn">Share Progress</button>
+        <button class="btn-action" id="exportBtn">Export Notes</button>
+        <button class="btn-auth hidden" id="logoutBtn" onclick="logoutUser()">Log Out</button>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="stats">
+      <span id="progressText">0 of 30 Days Completed</span>
+      <span id="percentText">0%</span>
+    </div>
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All Days (30)</button>
+      <button class="filter-btn" data-filter="1">Phase 1: Gospels</button>
+      <button class="filter-btn" data-filter="2">Phase 2: Acts & Paul</button>
+      <button class="filter-btn" data-filter="3">Phase 3: Final Letters</button>
+    </div>
+  </header>
+
+  <main id="planContainer"></main>
+
+  <div class="corner-widget">
+    <p class="widget-title">🙏 Prayer Line & Website</p>
+    <a href="tel:01273021777" class="widget-link">📞 01273 021777</a>
+    <a href="https://city4christ.org" target="_blank" rel="noopener noreferrer" class="widget-link">🌐 city4christ.org</a>
+  </div>
+
+  <script>
+    const
