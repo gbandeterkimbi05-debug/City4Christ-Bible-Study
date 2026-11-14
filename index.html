@@ -361,6 +361,13 @@
         const card = document.createElement("div");
         card.className = `day-card ${isDone ? "completed" : ""} ${isLocked ? "locked" : ""}`;
 
+        // Lock the passage link as well when the day is locked
+        const passageHtml = isLocked 
+          ? `<div class="passage-link" style="opacity: 0.5; cursor: not-allowed; background: rgba(255,255,255,0.05); border-color: transparent;">🔒 Complete Day ${item.day - 1} to unlock reading</div>`
+          : `<a class="passage-link" href="${buildBibleUrl(item.passages)}" target="_blank" rel="noopener">
+               📖 Read (${BIBLE_VERSION}): ${item.passages} ↗
+             </a>`;
+
         card.innerHTML = `
           <div class="day-header">
             <div>
@@ -369,9 +376,7 @@
             </div>
             <input type="checkbox" ${isDone ? "checked" : ""} ${isLocked ? "disabled" : ""} aria-label="Mark Day ${item.day} complete" />
           </div>
-          <a class="passage-link" href="${buildBibleUrl(item.passages)}" target="_blank" rel="noopener">
-            📖 Read (${BIBLE_VERSION}): ${item.passages} ↗
-          </a>
+          ${passageHtml}
           <div class="focus">${item.focus}</div>
           <textarea ${isLocked ? "disabled" : ""} placeholder="${isLocked ? `Complete Day ${item.day - 1} to unlock...` : "Write your 1-sentence takeaway..."}">${savedState.notes[item.day] || ""}</textarea>
         `;
