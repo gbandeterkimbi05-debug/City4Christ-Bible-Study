@@ -21,7 +21,7 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg); color: var(--text);
-      margin: 0; padding: 16px 20px 60px; max-width: 680px; margin-inline: auto;
+      margin: 0; padding: 16px 20px 80px; max-width: 680px; margin-inline: auto;
     }
     header {
       position: sticky; top: 0; background: rgba(91, 45, 124, 0.95);
@@ -100,6 +100,26 @@
     .auth-card button.submit-auth:hover { opacity: 0.9; }
     .toggle-auth, .forgot-password { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); cursor: pointer; text-decoration: underline; display: block; }
     .hidden { display: none !important; }
+
+    /* Fixed Corner Church Widget */
+    .corner-widget {
+      position: fixed;
+      bottom: 15px;
+      left: 15px;
+      background: rgba(45, 27, 78, 0.95);
+      border: 1px solid var(--accent);
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 100;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .widget-title { margin: 0; font-weight: bold; color: var(--accent); }
+    .widget-link { color: var(--text); text-decoration: none; display: block; }
+    .widget-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -149,6 +169,13 @@
 
   <main id="planContainer"></main>
 
+  <!-- Fixed Corner Church Widget -->
+  <div class="corner-widget">
+    <p class="widget-title">🙏 Prayer Line & Website</p>
+    <a href="tel:01273021777" class="widget-link">📞 01273 021777</a>
+    <a href="https://city4christ.org" target="_blank" rel="noopener noreferrer" class="widget-link">🌐 city4christ.org</a>
+  </div>
+
   <script>
     const SUPABASE_URL = 'https://wwjmkaimrwkfhwettsdq.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_B-Pf2Jj0V2izHi95z_Qj-Q_rzbSZfT8';
@@ -171,6 +198,7 @@
         document.getElementById('logoutBtn').classList.remove('hidden');
         await fetchUserData();
       }
+      renderPlan(); // Ensure plan renders whether logged in or waiting
     }
 
     async function handleAuth() {
@@ -245,7 +273,6 @@
           if (row.completed) savedState.completed[row.day_number] = row.completed;
         });
       }
-      renderPlan();
     }
 
     async function saveDayData(dayNumber) {
@@ -266,6 +293,8 @@
       updateProgress();
     }
 
+    const BIBLE_VERSION = "NIV";
+
     const studyPlan = [
       { day: 1, phase: 1, phaseName: "Phase 1 • Gospels", title: "Pre-Existence & Birth", passages: "John 1:1-18; Luke 1; Matthew 1:18-25; Luke 2; Matthew 2", focus: "Compare John's cosmic opening with Luke's historical detail and Matthew's Old Testament fulfillment." },
       { day: 2, phase: 1, phaseName: "Phase 1 • Gospels", title: "Preparation & Early Ministry", passages: "Matthew 3-4; Mark 1; Luke 3-4; John 1:19-51; John 2-4", focus: "Baptism, temptation in the wilderness, calling the first disciples, and early signs in Cana and Samaria." },
@@ -277,4 +306,143 @@
       { day: 8, phase: 1, phaseName: "Phase 1 • Gospels", title: "Ministry in Judea & Conflict", passages: "John 7-10; Luke 10-13", focus: "Rising tension with religious leaders at the Feast of Tabernacles and Luke's parables (Good Samaritan)." },
       { day: 9, phase: 1, phaseName: "Phase 1 • Gospels", title: "Parables of Grace & Lazarus", passages: "Luke 14-17; John 11", focus: "Lost sheep, lost coin, prodigal son, and Jesus demonstrating power over death by raising Lazarus." },
       { day: 10, phase: 1, phaseName: "Phase 1 • Gospels", title: "Journey to Jerusalem", passages: "Matthew 19-20; Mark 10; Luke 18:1-19:27; John 12:1-11", focus: "Teachings on marriage, wealth, Zacchaeus, and Mary anointing Jesus at Bethany." },
-      { day: 11, phase: 1, phaseName: "Phase 1 • Gospels", title: "Triumphal Entry & Temple Debates", passages: "Matthew 21-23; Mark
+      { day: 11, phase: 1, phaseName: "Phase 1 • Gospels", title: "Triumphal Entry & Temple Debates", passages: "Matthew 21-23; Mark 11-12; Luke 19:28-20:47", focus: "Palm Sunday, cleansing the temple, and Jesus silencing every religious trap set for Him." },
+      { day: 12, phase: 1, phaseName: "Phase 1 • Gospels", title: "The Olivet Discourse (End Times)", passages: "Matthew 24-25; Mark 13; Luke 21", focus: "Jesus's prophecy regarding the destruction of Jerusalem, His second coming, and staying watchful." },
+      { day: 13, phase: 1, phaseName: "Phase 1 • Gospels", title: "The Last Supper & Upper Room", passages: "Matthew 26:1-35; Mark 14:1-31; Luke 22:1-38; John 13-17", focus: "The New Covenant meal and John's intimate record of Jesus washing feet and praying for believers." },
+      { day: 14, phase: 1, phaseName: "Phase 1 • Gospels", title: "Arrest, Trials & Crucifixion", passages: "Matthew 26:36-27:66; Mark 14:32-15:47; Luke 22:39-23:56; John 18-19", focus: "Heavy reading day: take your time comparing the four accounts of Gethsemane, Pilate's trial, and the cross." },
+      { day: 15, phase: 1, phaseName: "Phase 1 • Gospels", title: "Resurrection & Ascension", passages: "Matthew 28; Mark 16; Luke 24; John 20-21; Acts 1:1-11", focus: "The empty tomb, appearances to the disciples, the Great Commission, and Jesus ascending to heaven." },
+      { day: 16, phase: 2, phaseName: "Phase 2 • Early Church", title: "Pentecost & Birth of the Church", passages: "Acts 1-5", focus: "The Holy Spirit arrives, Peter preaches, 3,000 are saved, and the early church faces internal and external tests." },
+      { day: 17, phase: 2, phaseName: "Phase 2 • Early Church", title: "Stephen, Saul & The Book of James", passages: "Acts 6-9; James 1-5", focus: "Stephen's martyrdom scatters believers, Saul converts, and James writes practical wisdom to scattered Jewish Christians." },
+      { day: 18, phase: 2, phaseName: "Phase 2 • Early Church", title: "Gentile Inclusion & Galatians", passages: "Acts 10-14; Galatians 1-6", focus: "Peter visits Cornelius, Paul completes his 1st journey, and writes Galatians defending salvation by grace alone." },
+      { day: 19, phase: 2, phaseName: "Phase 2 • Early Church", title: "Jerusalem Council & Thessalonians", passages: "Acts 15:1-18:17; 1 Thessalonians 1-5; 2 Thessalonians 1-3", focus: "The church settles Gentile inclusion; Paul enters Europe and writes to the Thessalonians about Christ's return." },
+      { day: 20, phase: 2, phaseName: "Phase 2 • Early Church", title: "Ephesus & 1 Corinthians (Part 1)", passages: "Acts 18:18-19:41; 1 Corinthians 1-9", focus: "Paul ministers in Ephesus for two years and writes to correct divisions, pride, and immorality in Corinth." },
+      { day: 21, phase: 2, phaseName: "Phase 2 • Early Church", title: "1 Corinthians (Part 2) & 2 Corinthians", passages: "1 Corinthians 10-16; 2 Corinthians 1-6", focus: "Worship, love (ch. 13), spiritual gifts, the resurrection (ch. 15), and Paul's ministry of reconciliation." },
+      { day: 22, phase: 2, phaseName: "Phase 2 • Early Church", title: "2 Corinthians (Part 2) & Romans 1-4", passages: "2 Corinthians 7-13; Acts 20:1-3; Romans 1-4", focus: "Paul defends his apostleship, arrives in Greece, and lays out humanity's need for justification by faith." },
+      { day: 23, phase: 2, phaseName: "Phase 2 • Early Church", title: "Romans 5-11: Life in the Spirit", passages: "Romans 5-11", focus: "Freedom from sin and death, life in the Spirit (ch. 8), and God's sovereign faithfulness to Israel." },
+      { day: 24, phase: 2, phaseName: "Phase 2 • Early Church", title: "Romans 12-16 & Paul's Arrest", passages: "Romans 12-16; Acts 20:4-23:35", focus: "Living sacrifices, Christian unity, and Paul's arrest in Jerusalem after his farewell to the Ephesian elders." },
+      { day: 25, phase: 3, phaseName: "Phase 3 • Final Letters", title: "Voyage to Rome, Philemon & Colossians", passages: "Acts 24-28; Philemon 1; Colossians 1-4", focus: "Shipwreck, arrival under Roman house arrest, and letters highlighting forgiveness and Christ's supremacy over all." },
+      { day: 26, phase: 3, phaseName: "Phase 3 • Final Letters", title: "Ephesians & Philippians", passages: "Ephesians 1-6; Philippians 1-4", focus: "Prison Epistles: the cosmic unity of the Church (Ephesians) and unshakeable joy in Christ (Philippians)." },
+      { day: 27, phase: 3, phaseName: "Phase 3 • Final Letters", title: "The Pastoral Epistles", passages: "1 Timothy 1-6; Titus 1-3; 2 Timothy 1-4", focus: "Paul's instructions on healthy church leadership and his final, moving farewell letter before execution." },
+      { day: 28, phase: 3, phaseName: "Phase 3 • Final Letters", title: "The Book of Hebrews", passages: "Hebrews 1-13", focus: "How Jesus is the ultimate High Priest and better covenant, fulfilling every Old Testament shadow." },
+      { day: 29, phase: 3, phaseName: "Phase 3 • Final Letters", title: "1 & 2 Peter and Jude", passages: "1 Peter 1-5; 2 Peter 1-3; Jude 1", focus: "Standing firm with hope under Roman persecution and guarding the faith against false teachers." },
+      { day: 30, phase: 3, phaseName: "Phase 3 • Final Letters", title: "John's Letters & Revelation", passages: "1 John 1-5; 2 John 1; 3 John 1; Revelation 1-22", focus: "Walking in love and truth, culminating in the dramatic vision of Christ's victory and the New Creation." }
+    ];
+
+    function updateProgress() {
+      const total = studyPlan.length;
+      const doneCount = Object.values(savedState.completed).filter(Boolean).length;
+      const pct = Math.round((doneCount / total) * 100);
+      document.getElementById("progressFill").style.width = pct + "%";
+      document.getElementById("progressText").textContent = `${doneCount} of ${total} Days Completed`;
+      document.getElementById("percentText").textContent = `${pct}%`;
+    }
+
+    // Bible Gateway link function restored
+    function buildBibleUrl(passages) {
+      return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(passages)}&version=${BIBLE_VERSION}`;
+    }
+
+    function renderPlan() {
+      const container = document.getElementById("planContainer");
+      container.innerHTML = "";
+
+      const filtered = currentFilter === "all"
+        ? studyPlan
+        : studyPlan.filter(item => String(item.phase) === currentFilter);
+
+      filtered.forEach(item => {
+        const isDone = !!savedState.completed[item.day];
+        const card = document.createElement("div");
+        card.className = `day-card ${isDone ? "completed" : ""}`;
+
+        card.innerHTML = `
+          <div class="day-header">
+            <div>
+              <span class="phase-tag">${item.phaseName}</span>
+              <span class="day-title">Day ${item.day}: ${item.title}</span>
+            </div>
+            <input type="checkbox" ${isDone ? "checked" : ""} aria-label="Mark Day ${item.day} complete" />
+          </div>
+          <a class="passage-link" href="${buildBibleUrl(item.passages)}" target="_blank" rel="noopener">
+            📖 Read (${BIBLE_VERSION}): ${item.passages} ↗
+          </a>
+          <div class="focus">${item.focus}</div>
+          <textarea placeholder="Write your 1-sentence takeaway...">${savedState.notes[item.day] || ""}</textarea>
+        `;
+
+        card.querySelector("input").addEventListener("change", (e) => {
+          savedState.completed[item.day] = e.target.checked;
+          card.classList.toggle("completed", e.target.checked);
+          saveDayData(item.day);
+        });
+
+        card.querySelector("textarea").addEventListener("input", (e) => {
+          savedState.notes[item.day] = e.target.value;
+          saveDayData(item.day);
+        });
+
+        container.appendChild(card);
+      });
+      updateProgress();
+    }
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.dataset.filter;
+        renderPlan();
+      });
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      let md = "# City4Christ - New Testament Study Notes\n\n";
+      studyPlan.forEach(item => {
+        const status = savedState.completed[item.day] ? "[x]" : "[ ]";
+        const note = (savedState.notes[item.day] || "").trim();
+        md += `### ${status} Day ${item.day}: ${item.title}\n`;
+        md += `**Passages:** ${item.passages}\n`;
+        if (note) md += `> ${note}\n`;
+        md += "\n";
+      });
+
+      const blob = new Blob([md], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "City4Christ-NT-Notes.md";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("shareBtn").addEventListener("click", async () => {
+      const total = studyPlan.length;
+      const doneCount = Object.values(savedState.completed).filter(Boolean).length;
+      const pct = Math.round((doneCount / total) * 100);
+      
+      const shareText = `🙏 I am currently at ${pct}% completion (${doneCount}/${total} days) in the City4Christ 30-Day Bible Study! Join me in the Word today! ✨`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'City4Christ Bible Study',
+            text: shareText,
+            url: window.location.href,
+          });
+        } catch (err) {
+          console.log('Share canceled or failed', err);
+        }
+      } else {
+        navigator.clipboard.writeText(shareText);
+        alert('Progress copied to clipboard! You can now paste it into WhatsApp or text messages.');
+      }
+    });
+
+    checkUserSession();  
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+</body>
+</html>
