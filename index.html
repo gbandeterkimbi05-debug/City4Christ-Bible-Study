@@ -57,7 +57,9 @@
       margin-bottom: 14px; border-left: 4px solid var(--accent);
       transition: opacity 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-    .day-card.completed { border-left-color: var(--done); opacity: 0.75; }
+    .day-card.completed { border-left-color: var(--done); opacity: 0.85; }
+    .day-card.locked { opacity: 0.5; border-left-color: #6b5b7a; }
+
     .day-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .phase-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); display: block; margin-bottom: 2px; font-weight: 600; }
     .day-title { font-weight: 700; font-size: 1.05rem; }
@@ -71,6 +73,7 @@
     
     .focus { color: var(--muted); font-size: 0.86rem; line-height: 1.4; margin-bottom: 12px; }
     input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--done); cursor: pointer; flex-shrink: 0; margin-top: 4px; }
+    input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.4; }
     
     textarea {
       width: 100%; box-sizing: border-box; background: #37174e; color: var(--text);
@@ -78,6 +81,7 @@
       resize: vertical; min-height: 44px; font-family: inherit;
     }
     textarea:focus { outline: none; border-color: var(--accent); }
+    textarea:disabled { cursor: not-allowed; background: #2a103d; color: #9988aa; }
 
     #auth-modal {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -198,7 +202,7 @@
         document.getElementById('logoutBtn').classList.remove('hidden');
         await fetchUserData();
       }
-      renderPlan(); // Ensure plan renders whether logged in or waiting
+      renderPlan(); 
     }
 
     async function handleAuth() {
@@ -337,7 +341,6 @@
       document.getElementById("percentText").textContent = `${pct}%`;
     }
 
-    // Bible Gateway link function restored
     function buildBibleUrl(passages) {
       return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(passages)}&version=${BIBLE_VERSION}`;
     }
@@ -352,8 +355,11 @@
 
       filtered.forEach(item => {
         const isDone = !!savedState.completed[item.day];
+        // Day 1 is unlocked by default. Subsequent days require the prior day to be completed.
+        const isLocked = item.day > 1 && !savedState.completed[item.day - 1];
+
         const card = document.createElement("div");
-        card.className = `day-card ${isDone ? "completed" : ""}`;
+        card.className = `day-card ${isDone ? "completed" : ""} ${isLocked ? "locked" : ""}`;
 
         card.innerHTML = `
           <div class="day-header">
@@ -361,25 +367,32 @@
               <span class="phase-tag">${item.phaseName}</span>
               <span class="day-title">Day ${item.day}: ${item.title}</span>
             </div>
-            <input type="checkbox" ${isDone ? "checked" : ""} aria-label="Mark Day ${item.day} complete" />
+            <input type="checkbox" ${isDone ? "checked" : ""} ${isLocked ? "disabled" : ""} aria-label="Mark Day ${item.day} complete" />
           </div>
           <a class="passage-link" href="${buildBibleUrl(item.passages)}" target="_blank" rel="noopener">
             📖 Read (${BIBLE_VERSION}): ${item.passages} ↗
           </a>
           <div class="focus">${item.focus}</div>
-          <textarea placeholder="Write your 1-sentence takeaway...">${savedState.notes[item.day] || ""}</textarea>
+          <textarea ${isLocked ? "disabled" : ""} placeholder="${isLocked ? `Complete Day ${item.day - 1} to unlock...` : "Write your 1-sentence takeaway..."}">${savedState.notes[item.day] || ""}</textarea>
         `;
 
-        card.querySelector("input").addEventListener("change", (e) => {
-          savedState.completed[item.day] = e.target.checked;
-          card.classList.toggle("completed", e.target.checked);
-          saveDayData(item.day);
-        });
+        const checkbox = card.querySelector("input");
+        if (checkbox && !isLocked) {
+          checkbox.addEventListener("change", (e) => {
+            savedState.completed[item.day] = e.target.checked;
+            card.classList.toggle("completed", e.target.checked);
+            saveDayData(item.day);
+            renderPlan(); // Re-render instantly so the next day unlocks smoothly
+          });
+        }
 
-        card.querySelector("textarea").addEventListener("input", (e) => {
-          savedState.notes[item.day] = e.target.value;
-          saveDayData(item.day);
-        });
+        const textarea = card.querySelector("textarea");
+        if (textarea && !isLocked) {
+          textarea.addEventListener("input", (e) => {
+            savedState.notes[item.day] = e.target.value;
+            saveDayData(item.day);
+          });
+        }
 
         container.appendChild(card);
       });
