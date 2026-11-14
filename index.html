@@ -6,8 +6,7 @@
   <title>City4Christ • NT Study Plan</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#5b2d7c" />
-  <!-- Use a robust CDN version for Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #5b2d7c;
@@ -22,7 +21,7 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg); color: var(--text);
-      margin: 0; padding: 16px 20px 80px; max-width: 680px; margin-inline: auto;
+      margin: 0; padding: 16px 20px 60px; max-width: 680px; margin-inline: auto;
     }
     header {
       position: sticky; top: 0; background: rgba(91, 45, 124, 0.95);
@@ -58,9 +57,7 @@
       margin-bottom: 14px; border-left: 4px solid var(--accent);
       transition: opacity 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
-    .day-card.completed { border-left-color: var(--done); opacity: 0.85; }
-    .day-card.locked { opacity: 0.5; border-left-color: #6b5b7a; }
-    
+    .day-card.completed { border-left-color: var(--done); opacity: 0.75; }
     .day-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .phase-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); display: block; margin-bottom: 2px; font-weight: 600; }
     .day-title { font-weight: 700; font-size: 1.05rem; }
@@ -74,7 +71,6 @@
     
     .focus { color: var(--muted); font-size: 0.86rem; line-height: 1.4; margin-bottom: 12px; }
     input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--done); cursor: pointer; flex-shrink: 0; margin-top: 4px; }
-    input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
     
     textarea {
       width: 100%; box-sizing: border-box; background: #37174e; color: var(--text);
@@ -82,7 +78,6 @@
       resize: vertical; min-height: 44px; font-family: inherit;
     }
     textarea:focus { outline: none; border-color: var(--accent); }
-    textarea:disabled { cursor: not-allowed; background: #2a103d; color: #9988aa; }
 
     #auth-modal {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -105,25 +100,6 @@
     .auth-card button.submit-auth:hover { opacity: 0.9; }
     .toggle-auth, .forgot-password { margin-top: 0.75rem; font-size: 0.85rem; color: var(--muted); cursor: pointer; text-decoration: underline; display: block; }
     .hidden { display: none !important; }
-
-    .corner-widget {
-      position: fixed;
-      bottom: 15px;
-      left: 15px;
-      background: rgba(45, 27, 78, 0.95);
-      border: 1px solid var(--accent);
-      padding: 8px 12px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      z-index: 100;
-      font-size: 0.8rem;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .widget-title { margin: 0; font-weight: bold; color: var(--accent); }
-    .widget-link { color: var(--text); text-decoration: none; display: block; }
-    .widget-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -146,7 +122,7 @@
   <header>
     <div class="top-row">
       <div class="brand-container">
-        <img src="icon.png" alt="City4Christ Logo" class="brand-logo" onerror="this.style.display='none'" />
+        <img src="icon.png" alt="City4Christ Logo" class="brand-logo" />
         <div class="brand-titles">
           <span>The House of Good News</span>
           <h1>City4Christ Bible Study</h1>
@@ -173,11 +149,132 @@
 
   <main id="planContainer"></main>
 
-  <div class="corner-widget">
-    <p class="widget-title">🙏 Prayer Line & Website</p>
-    <a href="tel:01273021777" class="widget-link">📞 01273 021777</a>
-    <a href="https://city4christ.org" target="_blank" rel="noopener noreferrer" class="widget-link">🌐 city4christ.org</a>
-  </div>
-
   <script>
-    const
+    const SUPABASE_URL = 'https://wwjmkaimrwkfhwettsdq.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_B-Pf2Jj0V2izHi95z_Qj-Q_rzbSZfT8';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let isSignUp = false;
+    let currentUser = null;
+    let savedState = { completed: {}, notes: {} };
+    let currentFilter = "all";
+
+    async function checkUserSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      currentUser = session?.user || null;
+      
+      if (!currentUser) {
+        document.getElementById('auth-modal').classList.remove('hidden');
+        document.getElementById('logoutBtn').classList.add('hidden');
+      } else {
+        document.getElementById('auth-modal').classList.add('hidden');
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        await fetchUserData();
+      }
+    }
+
+    async function handleAuth() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('auth-error');
+      errorEl.textContent = '';
+
+      if (isSignUp) {
+        const { error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) {
+          errorEl.textContent = error.message;
+        } else {
+          alert('Account created successfully! You can now sign in.');
+          isSignUp = false;
+          toggleAuthMode();
+        }
+      } else {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+          errorEl.textContent = error.message;
+        } else {
+          checkUserSession();
+        }
+      }
+    }
+
+    async function handleForgotPassword() {
+      const email = document.getElementById('email').value;
+      const errorEl = document.getElementById('auth-error');
+      errorEl.textContent = '';
+
+      if (!email) {
+        errorEl.textContent = 'Please enter your email address above first.';
+        return;
+      }
+
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.href,
+      });
+
+      if (error) {
+        errorEl.textContent = error.message;
+      } else {
+        alert('Password reset link sent! Check your email inbox.');
+      }
+    }
+
+    async function logoutUser() {
+      await supabaseClient.auth.signOut();
+      location.reload();
+    }
+
+    function toggleAuthMode() {
+      isSignUp = !isSignUp;
+      document.getElementById('auth-title').textContent = isSignUp ? 'Create Account' : 'Welcome to City4Christ';
+      document.getElementById('auth-submit-btn').textContent = isSignUp ? 'Sign Up' : 'Sign In';
+      document.querySelector('.toggle-auth').textContent = isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up';
+    }
+
+    async function fetchUserData() {
+      if (!currentUser) return;
+      const { data, error } = await supabaseClient
+        .from('user_notes')
+        .select('day_number, note_content, completed')
+        .eq('user_id', currentUser.id);
+
+      if (data && !error) {
+        savedState = { completed: {}, notes: {} };
+        data.forEach(row => {
+          if (row.note_content) savedState.notes[row.day_number] = row.note_content;
+          if (row.completed) savedState.completed[row.day_number] = row.completed;
+        });
+      }
+      renderPlan();
+    }
+
+    async function saveDayData(dayNumber) {
+      if (!currentUser) return;
+      const content = savedState.notes[dayNumber] || "";
+      const isDone = !!savedState.completed[dayNumber];
+
+      await supabaseClient
+        .from('user_notes')
+        .upsert({ 
+          user_id: currentUser.id, 
+          day_number: dayNumber, 
+          note_content: content,
+          completed: isDone,
+          updated_at: new Date()
+        }, { onConflict: 'user_id,day_number' });
+
+      updateProgress();
+    }
+
+    const studyPlan = [
+      { day: 1, phase: 1, phaseName: "Phase 1 • Gospels", title: "Pre-Existence & Birth", passages: "John 1:1-18; Luke 1; Matthew 1:18-25; Luke 2; Matthew 2", focus: "Compare John's cosmic opening with Luke's historical detail and Matthew's Old Testament fulfillment." },
+      { day: 2, phase: 1, phaseName: "Phase 1 • Gospels", title: "Preparation & Early Ministry", passages: "Matthew 3-4; Mark 1; Luke 3-4; John 1:19-51; John 2-4", focus: "Baptism, temptation in the wilderness, calling the first disciples, and early signs in Cana and Samaria." },
+      { day: 3, phase: 1, phaseName: "Phase 1 • Gospels", title: "The Sermon on the Mount", passages: "Matthew 5-7; Luke 6:17-49", focus: "Kingdom ethics: compare Matthew's mountain sermon with Luke's sermon on the plain." },
+      { day: 4, phase: 1, phaseName: "Phase 1 • Gospels", title: "Authority Over Disease & Nature", passages: "Matthew 8-9; Mark 2-5; Luke 5; Luke 7-8", focus: "Notice how Mark emphasizes fast-paced action and immediate authority over storms, demons, and sickness." },
+      { day: 5, phase: 1, phaseName: "Phase 1 • Gospels", title: "Sending the Twelve & Parables", passages: "Matthew 10-13; Mark 3:13-35; Mark 4:1-34; Mark 6:1-13; Luke 9:1-6", focus: "Jesus commissions the disciples and uses parables to reveal the mysteries of the Kingdom." },
+      { day: 6, phase: 1, phaseName: "Phase 1 • Gospels", title: "Miracles & Bread of Life", passages: "Matthew 14-15; Mark 6:30-56; Mark 7; Luke 9:10-17; John 5-6", focus: "Feeding the 5,000 across all four Gospels, followed by John's theological discourse on Jesus as the Bread of Life." },
+      { day: 7, phase: 1, phaseName: "Phase 1 • Gospels", title: "Peter’s Confession & Transfiguration", passages: "Matthew 16-18; Mark 8-9; Luke 9:18-62", focus: "The turning point of the Gospels: Peter recognizes Jesus as the Christ, and Jesus begins predicting His death." },
+      { day: 8, phase: 1, phaseName: "Phase 1 • Gospels", title: "Ministry in Judea & Conflict", passages: "John 7-10; Luke 10-13", focus: "Rising tension with religious leaders at the Feast of Tabernacles and Luke's parables (Good Samaritan)." },
+      { day: 9, phase: 1, phaseName: "Phase 1 • Gospels", title: "Parables of Grace & Lazarus", passages: "Luke 14-17; John 11", focus: "Lost sheep, lost coin, prodigal son, and Jesus demonstrating power over death by raising Lazarus." },
+      { day: 10, phase: 1, phaseName: "Phase 1 • Gospels", title: "Journey to Jerusalem", passages: "Matthew 19-20; Mark 10; Luke 18:1-19:27; John 12:1-11", focus: "Teachings on marriage, wealth, Zacchaeus, and Mary anointing Jesus at Bethany." },
+      { day: 11, phase: 1, phaseName: "Phase 1 • Gospels", title: "Triumphal Entry & Temple Debates", passages: "Matthew 21-23; Mark
